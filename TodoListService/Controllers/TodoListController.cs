@@ -1,86 +1,67 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Identity.Web.Resource;
-using System.Collections.Generic;
-using System.Linq;
+using TodoListRepositories;
 using TodoListService.Models;
 
 namespace TodoListService.Controllers
 {
     [Authorize]
     [Route("api/[controller]")]
-    [RequiredScope(scopeRequiredByAPI)]
-    public class TodoListController : Controller
+    [RequiredScope(ScopeRequiredByApi)]
+    public class TodoListController(ITodoRepository repository) : Controller
     {
-        const string scopeRequiredByAPI = "tasks.read";
-        // In-memory TodoList
-        private static readonly Dictionary<int, Todo> TodoStore = new Dictionary<int, Todo>();
-
-        private readonly IHttpContextAccessor _contextAccessor;
-     
-        public TodoListController(IHttpContextAccessor contextAccessor)
+        private const string ScopeRequiredByApi = "task.read";
+        private string IdentityName
         {
-            this._contextAccessor = contextAccessor;
-
-            // Pre-populate with sample data
-            if (TodoStore.Count == 0)
+            get
             {
-                TodoStore.Add(1, new Todo() { Id = 1, Owner = $"{this._contextAccessor.HttpContext.User.Identity.Name}", Title = "Pick up groceries" });
-                TodoStore.Add(2, new Todo() { Id = 2, Owner = $"{this._contextAccessor.HttpContext.User.Identity.Name}", Title = "Finish invoice report" });
+                var identity = HttpContext.User.Identity as ClaimsIdentity; 
+                return identity?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value ?? string.Empty;
             }
         }
 
-        // GET: api/values
         [HttpGet]
-        public IEnumerable<Todo> Get()
-        {
-            string owner = User.Identity.Name;
-            return TodoStore.Values.Where(x => x.Owner == owner);
-        }
+        public IEnumerable<TodoModel> Get() => repository.GetByOwner(IdentityName).Select(TodoModel.New);
 
-        // GET: api/values
-        [HttpGet("{id}", Name = "Get")]
-        public Todo Get(int id)
-        {
-            return TodoStore.Values.FirstOrDefault(t => t.Id == id);
-        }
+        [HttpGet("{id:int}", Name = "Get")]
+        public TodoModel Get(int id) => TodoModel.New(repository.GetById(id));
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         public void Delete(int id)
         {
-            TodoStore.Remove(id);
+            repository.Delete(id);
         }
 
-        // POST api/values
         [HttpPost]
-        public IActionResult Post([FromBody] Todo todo)
+        public IActionResult Post([FromBody] TodoModel model)
         {
-            int id = TodoStore.Values.OrderByDescending(x => x.Id).FirstOrDefault().Id + 1;
-            Todo todonew = new Todo() { Id = id, Owner = HttpContext.User.Identity.Name, Title = todo.Title };
-            TodoStore.Add(id, todonew);
-
-            return Ok(todo);
+            var id = repository.GetCurrentId() + 1;
+            var todo = model.ToDomain() with { Id = id, Owner = IdentityName};
+            repository.Add(todo);
+            return Ok(model);
         }
 
-        // PATCH api/values
-        [HttpPatch("{id}")]
-        public IActionResult Patch(int id, [FromBody] Todo todo)
+        [HttpPatch("{id:int}")]
+        public IActionResult Patch(int id, [FromBody] TodoModel todoModel)
         {
-            if (id != todo.Id)
+            if (id != todoModel.Id)
             {
                 return NotFound();
             }
 
-            if (TodoStore.Values.FirstOrDefault(x => x.Id == id) == null)
+            if (repository.GetById(id) == null)
             {
                 return NotFound();
             }
 
-            TodoStore.Remove(id);
-            TodoStore.Add(id, todo);
+            repository.Delete(id);
+            repository.Add(todoModel.ToDomain());
 
-            return Ok(todo);
+            return Ok(todoModel);
         }
     }
 }

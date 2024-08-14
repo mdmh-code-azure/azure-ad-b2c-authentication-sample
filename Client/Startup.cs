@@ -1,26 +1,19 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Identity.Web;
-using TodoListClient.Services;
 using Microsoft.Extensions.Hosting;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web.UI;
+using TodoListClient.Services;
 
-namespace WebApp_OpenIDConnect_DotNet
+namespace TodoListClient
 {
-    public class Startup
+    public class Startup(IConfiguration configuration)
     {
-        public Startup(IConfiguration configuration)
-        {
-            Configuration = configuration;
-        }
-
-        public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -38,12 +31,12 @@ namespace WebApp_OpenIDConnect_DotNet
 
             services.AddOptions();
 
-            services.AddMicrosoftIdentityWebAppAuthentication(Configuration, Constants.AzureAdB2C)
-                    .EnableTokenAcquisitionToCallDownstreamApi(new string[] { Configuration["TodoList:TodoListScope"] })
+            services.AddMicrosoftIdentityWebAppAuthentication(configuration, Constants.AzureAdB2C)
+                    .EnableTokenAcquisitionToCallDownstreamApi(new string[] { configuration["TodoList:TodoListScope"] })
                     .AddInMemoryTokenCaches();
 
             // Add APIs
-            services.AddTodoListService(Configuration);
+            services.AddTodoListService();
 
             services.AddControllersWithViews(options =>
             {
@@ -52,12 +45,14 @@ namespace WebApp_OpenIDConnect_DotNet
                     .Build();
                 options.Filters.Add(new AuthorizeFilter(policy));
             }).AddMicrosoftIdentityUI();
+            
 
+            
             services.AddRazorPages();
 
-            //Configuring appsettings section AzureAdB2C, into IOptions
+            //Configuring appSettings section AzureAdB2C, into IOptions
             services.AddOptions();
-            services.Configure<OpenIdConnectOptions>(Configuration.GetSection("AzureAdB2C"));
+            services.Configure<OpenIdConnectOptions>(configuration.GetSection("AzureAdB2C"));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

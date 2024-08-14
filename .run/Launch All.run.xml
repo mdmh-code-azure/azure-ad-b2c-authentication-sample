@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Launch All" type="CompoundRunConfigurationType">
+    <toRun name="TodoListClient: webApp" type="LaunchSettings" />
+    <toRun name="TodoListService" type="LaunchSettings" />
+    <method v="2" />
+  </configuration>
+</component>

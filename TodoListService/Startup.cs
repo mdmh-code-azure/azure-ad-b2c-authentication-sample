@@ -5,18 +5,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Identity.Web;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using TodoListRepositories;
 
 namespace TodoListService
 {
-    public class Startup
+    public class Startup(IConfiguration configuration)
     {
-        public Startup(IConfiguration configuration)
-        {
-            Configuration = configuration;
-        }
-
-        public IConfiguration Configuration { get; }
-
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
@@ -28,14 +22,18 @@ namespace TodoListService
 
             // Adds Microsoft Identity platform (AAD v2.0) support to protect this Api
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                    .AddMicrosoftIdentityWebApi(options =>
-            {
-                Configuration.Bind("AzureAdB2C", options);
+                .AddMicrosoftIdentityWebApi(options =>
+                    {
+                        configuration.Bind("AzureAdB2C", options);
 
-                options.TokenValidationParameters.NameClaimType = "name";
-            },
-            options => { Configuration.Bind("AzureAdB2C", options); });
+                        options.TokenValidationParameters.NameClaimType = "name";
+                    },
+                    options => { configuration.Bind("AzureAdB2C", options); });
 
+            services.AddEndpointsApiExplorer();
+            services.AddSwaggerGen();
+
+            services.AddTransient<ITodoRepository, TodoInMemoryRepository>();
             services.AddControllers();
         }
 
@@ -55,16 +53,16 @@ namespace TodoListService
                 app.UseHsts();
             }
 
+            app.UseSwagger();
+            app.UseSwaggerUI();
+
             app.UseHttpsRedirection();
 
             app.UseRouting();
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
+            app.UseEndpoints(endpoints => { endpoints.MapControllers(); });
         }
     }
 }

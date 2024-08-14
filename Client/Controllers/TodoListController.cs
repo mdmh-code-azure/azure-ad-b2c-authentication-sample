@@ -1,91 +1,68 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Identity.Web;
-using System.Threading.Tasks;
+﻿using Microsoft.AspNetCore.Mvc;
 using TodoListClient.Services;
-using TodoListService.Models;
 
 namespace TodoListClient.Controllers
 {
-    public class TodoListController : Controller
+    public class TodoListController(ITodoListService todoListService) : Controller
     {
-        private ITodoListService _todoListService;
-
-        public TodoListController(ITodoListService todoListService)
-        {
-            _todoListService = todoListService;
-        }
-
         // GET: TodoList
         [AuthorizeForScopes(ScopeKeySection = "TodoList:TodoListScope")]
         public async Task<ActionResult> Index()
         {
-            return View(await _todoListService.GetAsync());
+            return View((await todoListService.GetAsync()).Select(TodoModel.New));
         }
 
         // GET: TodoList/Details/5
         public async Task<ActionResult> Details(int id)
         {
-            return View(await _todoListService.GetAsync(id));
+            return View(TodoModel.New(await todoListService.GetAsync(id)));
         }
 
         // GET: TodoList/Create
         public ActionResult Create()
         {
-            Todo todo = new Todo() { Owner = HttpContext.User.Identity.Name };
+            var todo = new TodoModel(0, string.Empty, HttpContext.User.Identity.Name);
             return View(todo);
         }
 
         // POST: TodoList/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> Create([Bind("Title,Owner")] Todo todo)
+        public async Task<ActionResult> Create([Bind("Title,Owner")] TodoModel model)
         {
-            await _todoListService.AddAsync(todo);
+            await todoListService.AddAsync(model.ToDomain());
             return RedirectToAction("Index");
         }
 
         // GET: TodoList/Edit/5
         public async Task<ActionResult> Edit(int id)
         {
-            Todo todo = await this._todoListService.GetAsync(id);
-
-            if (todo == null)
-            {
-                return NotFound();
-            }
-
-            return View(todo);
+            var todo = await todoListService.GetAsync(id);
+            return todo == null ? NotFound() : View(TodoModel.New(todo));
         }
 
         // POST: TodoList/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> Edit(int id, [Bind("Id,Title,Owner")] Todo todo)
+        public async Task<ActionResult> Edit(int id, [Bind("Id,Title,Owner")] TodoModel model)
         {
-            await _todoListService.EditAsync(todo);
+            await todoListService.EditAsync(model.ToDomain());
             return RedirectToAction("Index");
         }
 
         // GET: TodoList/Delete/5
         public async Task<ActionResult> Delete(int id)
         {
-            Todo todo = await this._todoListService.GetAsync(id);
-
-            if (todo == null)
-            {
-                return NotFound();
-            }
-
-            return View(todo);
+            var todo = await todoListService.GetAsync(id);
+            return todo == null ? NotFound() : View(TodoModel.New(todo));
         }
 
         // POST: TodoList/Delete/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> Delete(int id, [Bind("Id,Title,Owner")] Todo todo)
+        public async Task<ActionResult> Delete(int id, [Bind("Id,Title,Owner")] TodoModel todoModel)
         {
-            await _todoListService.DeleteAsync(id);
+            await todoListService.DeleteAsync(id);
             return RedirectToAction("Index");
         }
     }
